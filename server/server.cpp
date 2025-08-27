@@ -5,40 +5,64 @@
 #include <windows.h> // Required for SetConsoleTitle
 #include <atomic>
 #include <thread>
+
 using namespace std;
+bool Connected = true;
 
-void handle_client(SOCKET clientSocket){
-    bool Connected = true;
-    char buffer[200];
+void handle_msg(SOCKET clientSocket)
+{
+    char recvBuffer[200];
 
-    while (Connected) {
-        int byteCount = recv(clientSocket, buffer, sizeof(buffer), 0);
+    // Receive message from client
+    int byteCount = recv(clientSocket, recvBuffer, sizeof(recvBuffer) - 1, 0);
+    if (byteCount <= 0) {
+        cout << "Client disconnected or recv failed: " << WSAGetLastError() << endl;
+        return;
+    }
 
-        if (byteCount > 0) {
-            buffer[byteCount] = '\0'; // null-terminate for safety
-            cout << "Message Received: " << buffer << endl;
-        } else {
-            break; // client disconnected
+    recvBuffer[byteCount] = '\0';
+    cout << "Message Received: " << recvBuffer << endl;
+
+    // Send confirmation
+    const char* confirmation = "Server: Message Received\n";
+    if (send(clientSocket, confirmation, strlen(confirmation), 0) == SOCKET_ERROR) {
+        cout << "send() failed: " << WSAGetLastError() << endl;
+    }
+}
+
+void handle_shutdown(SOCKET clientSocket)
+{
+    const char *shutdownMsg = "Shutting Down...";
+    send(clientSocket, shutdownMsg, strlen(shutdownMsg), 0);
+    cout << "shutting down client connection" << endl;
+    Connected = false;
+}
+
+void handle_client(SOCKET clientSocket)
+{
+
+    char cmdBuffer[200];
+    while (Connected)
+    {
+
+        int byteCount = recv(clientSocket, cmdBuffer, sizeof(cmdBuffer), 0);
+        if (byteCount <= 0)
+            break;
+        cmdBuffer[byteCount] = '\0';
+
+        if (strcmp(cmdBuffer, "shutdown") == 0)
+        {
+            handle_shutdown(clientSocket);
         }
-
-        const char* confirmation = "Server: Message Received!";
-        send(clientSocket, confirmation, strlen(confirmation), 0);
-
-        if (strcmp(buffer, "shutdown") == 0) {
-            const char* shutdownMsg = "shutdown";
-            send(clientSocket, shutdownMsg, strlen(shutdownMsg), 0);
-            cout << "shutting down client connection" << endl;
-            Connected = false;
+        else if (strcmp(cmdBuffer, "msg") == 0)
+        {
+            handle_msg(clientSocket);
         }
     }
 
     closesocket(clientSocket);
     cout << "Client disconnected" << endl;
-}  
-
-
-
-
+}
 
 
 
@@ -46,7 +70,7 @@ int main()
 {
     SetConsoleTitle(TEXT("Radio Server"));
 
-// 1. Initialize WSA ------------ WSAStartup()
+    // 1. Initialize WSA ------------ WSAStartup()
 
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
@@ -55,7 +79,7 @@ int main()
         return 0;
     }
 
-// 2. Create Socket ------------- socket()
+    // 2. Create Socket ------------- socket()
 
     SOCKET serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (serverSocket == INVALID_SOCKET)
@@ -65,7 +89,7 @@ int main()
         return 0;
     }
 
-// 3. Bind Socket --------------- bind()
+    // 3. Bind Socket --------------- bind()
 
     sockaddr_in service;
     service.sin_family = AF_INET;
@@ -80,7 +104,7 @@ int main()
         return 0;
     }
 
-// 4. Listen on the Socket ------ listen()
+    // 4. Listen on the Socket ------ listen()
 
     if (listen(serverSocket, SOMAXCONN) == SOCKET_ERROR)
     {
@@ -91,98 +115,28 @@ int main()
     }
     cout << "Server Listening on Port 55555..." << endl;
 
-// 5. Accept a Connection ------- accept(), connect()
-   
-    cout << "Accepted Conection" << endl;
+    // 5. Accept a Connection ------- accept(), connect()
+
+    
     atomic<bool> serverRunning(true);
 
-    while(serverRunning){
+    while (serverRunning)
+    {
         SOCKET acceptSocket = accept(serverSocket, NULL, NULL);
 
-        if (acceptSocket == INVALID_SOCKET){
-        cout << "Accept Failed: " << WSAGetLastError() << endl;
-        continue;
+        if (acceptSocket == INVALID_SOCKET)
+        {
+            cout << "Accept Failed: " << WSAGetLastError() << endl;
+            continue;
         }
 
-        cout<<"Accepted Connection"<<endl;
+        cout << "Accepted Connection" << endl;
 
         thread(handle_client, acceptSocket).detach();
-
     }
 
     system("pause");
     closesocket(serverSocket);
     WSACleanup();
-
-
-
-
-
-
-
-
-
-
-/*    
-
-
-
-
-
-// 5. Send and Recieve Data ----- recv(), send(), recvfrom(), sendto()
-
-
-
-
-
-
-
-    while (Connected)
-    {
-        char buffer[200];
-        int byteCount = recv(acceptSocket, buffer, 200, 0);
-
-        if (byteCount > 0)
-        {
-            cout << "Message Recieved: " << buffer << endl;
-        }
-        else
-        {
-            WSACleanup();
-        }
-
-        char confirmation[200] = "Server: Message Recieved!";
-        byteCount = send(acceptSocket, confirmation, 200, 0);
-
-        if (byteCount > 0)
-        {
-            cout << "Sent Conformation to client" << endl;
-        }
-        else
-        {
-            WSACleanup();
-        }
-
-        if (strcmp(buffer, "shutdown") == 0)
-        {
-
-            char shutdown[200] = "shutdown";
-            byteCount = send(acceptSocket, shutdown, 200, 0);
-
-            if (byteCount > 0)
-            {
-                cout << "sent shutdown command to client" << endl;
-            }
-            else
-            {
-                WSACleanup();
-            }
-
-            cout << "shutting down" << endl;
-            Connected = false;
-        }
-    }
-    */
-    // 6. Disconnect ---------------- closesocket()
 
 }
