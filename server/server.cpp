@@ -3,52 +3,75 @@
 #include <iostream>   // For printing/logging
 #include <tchar.h>
 #include <windows.h> // Required for SetConsoleTitle
-
+#include <atomic>
+#include <thread>
 using namespace std;
+
+void handle_client(SOCKET clientSocket){
+    bool Connected = true;
+    char buffer[200];
+
+    while (Connected) {
+        int byteCount = recv(clientSocket, buffer, sizeof(buffer), 0);
+
+        if (byteCount > 0) {
+            buffer[byteCount] = '\0'; // null-terminate for safety
+            cout << "Message Received: " << buffer << endl;
+        } else {
+            break; // client disconnected
+        }
+
+        const char* confirmation = "Server: Message Received!";
+        send(clientSocket, confirmation, strlen(confirmation), 0);
+
+        if (strcmp(buffer, "shutdown") == 0) {
+            const char* shutdownMsg = "shutdown";
+            send(clientSocket, shutdownMsg, strlen(shutdownMsg), 0);
+            cout << "shutting down client connection" << endl;
+            Connected = false;
+        }
+    }
+
+    closesocket(clientSocket);
+    cout << "Client disconnected" << endl;
+}  
+
+
+
+
+
+
 
 int main()
 {
     SetConsoleTitle(TEXT("Radio Server"));
-    // 1. Initialize WSA ------------ WSAStartup()
-    cout << "Initalizing WSA=======================" << endl;
 
-    SOCKET serverSocket, acceptSocket;
-    int port = 55555;
+// 1. Initialize WSA ------------ WSAStartup()
+
     WSADATA wsaData;
-    int wsaerr;
-    WORD wVersionRequested = MAKEWORD(2, 2);
-    wsaerr = WSAStartup(wVersionRequested, &wsaData);
-    if (wsaerr != 0)
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
     {
         cout << "The Windsock dll not found!" << endl;
         return 0;
     }
-    else
-    {
-        cout << "The Windsock dll Found!" << endl;
-        cout << "The Status: " << wsaData.szSystemStatus << endl;
-    }
 
-    // 2. Create Socket ------------- socket()
-    cout << "Creating Socket===================" << endl;
-    serverSocket = INVALID_SOCKET;
-    serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+// 2. Create Socket ------------- socket()
+
+    SOCKET serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (serverSocket == INVALID_SOCKET)
     {
         cout << "Error at socket():" << WSAGetLastError() << endl;
         WSACleanup();
         return 0;
     }
-    else
-    {
-        cout << "socket() is okay!" << endl;
-    }
-    // 3. Bind Socket --------------- bind()
-    cout << "Attempting to bind Socket=======" << endl;
+
+// 3. Bind Socket --------------- bind()
+
     sockaddr_in service;
     service.sin_family = AF_INET;
     InetPton(AF_INET, _T("127.0.0.1"), &service.sin_addr.s_addr);
-    service.sin_port = htons(port);
+    service.sin_port = htons(55555);
+
     if (bind(serverSocket, (SOCKADDR *)&service, sizeof(service)) == SOCKET_ERROR)
     {
         cout << "bind() failed: " << WSAGetLastError() << endl;
@@ -56,33 +79,63 @@ int main()
         WSACleanup();
         return 0;
     }
-    else
-    {
-        cout << "Bind Succesful!" << endl;
-    }
-    // 4. Listen on the Socket ------ listen()
-    cout << "Attempting to Listen==============" << endl;
-    if (listen(serverSocket, 1) == SOCKET_ERROR)
+
+// 4. Listen on the Socket ------ listen()
+
+    if (listen(serverSocket, SOMAXCONN) == SOCKET_ERROR)
     {
         cout << "listen(): Error listening on socket" << WSAGetLastError() << endl;
-    }
-    else
-    {
-        cout << "listen() success! Waiting For connections!" << endl;
-    }
-    // 5. Accept a Connection ------- accept(), connect()
-    cout << "Accept a connection from client=============" << endl;
-    acceptSocket = accept(serverSocket, NULL, NULL);
-    if (acceptSocket == INVALID_SOCKET)
-    {
-        cout << "Accept Failed: " << WSAGetLastError() << endl;
+        closesocket(serverSocket);
         WSACleanup();
-        return -1;
+        return 0;
     }
-    cout << "Accepted Conection" << endl;
+    cout << "Server Listening on Port 55555..." << endl;
 
-    // 5. Send and Recieve Data ----- recv(), send(), recvfrom(), sendto()
-    bool Connected = true;
+// 5. Accept a Connection ------- accept(), connect()
+   
+    cout << "Accepted Conection" << endl;
+    atomic<bool> serverRunning(true);
+
+    while(serverRunning){
+        SOCKET acceptSocket = accept(serverSocket, NULL, NULL);
+
+        if (acceptSocket == INVALID_SOCKET){
+        cout << "Accept Failed: " << WSAGetLastError() << endl;
+        continue;
+        }
+
+        cout<<"Accepted Connection"<<endl;
+
+        thread(handle_client, acceptSocket).detach();
+
+    }
+
+    system("pause");
+    closesocket(serverSocket);
+    WSACleanup();
+
+
+
+
+
+
+
+
+
+
+/*    
+
+
+
+
+
+// 5. Send and Recieve Data ----- recv(), send(), recvfrom(), sendto()
+
+
+
+
+
+
 
     while (Connected)
     {
@@ -129,7 +182,7 @@ int main()
             Connected = false;
         }
     }
+    */
     // 6. Disconnect ---------------- closesocket()
-    system("pause");
-    WSACleanup();
+
 }
