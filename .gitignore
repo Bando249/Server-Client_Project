@@ -1,0 +1,13 @@
+/server/build/
+/server/bin/
+/client/build/
+/client/bin/
+
+
+.vscode
+
+*.o
+*.obj
+*.exe
+*.lib
+*.pdb
