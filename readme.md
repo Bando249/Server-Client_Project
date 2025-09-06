@@ -4,39 +4,39 @@ C++ server-client application using SQLite for data storage and logging. Feature
 
 ## Folder Structure
 
-/server
-    /src
-    /include
-    /libs
-    /bin
-    /build
-/client
-    /src
-    /include
-    /bin
-    /build
-.gitignore
-README.md
+/server  
+    /src  
+    /include  
+    /libs  
+    /bin  
+    /build  
+/client  
+    /src  
+    /include  
+    /bin  
+    /build  
+.gitignore  
+README.md  
 
 ## Build Instructions
 
 ### Server
-cd server
-mkdir build
-cd build
-cmake ..
-cmake --build .
+cd server  
+mkdir build  
+cd build  
+cmake ..  
+cmake --build .  
 
-Executable will be in /server/bin
+Executable will be in /server/bin  
 
 ### Client
-cd client
-mkdir build
-cd build
-cmake ..
-cmake --build .
+cd client  
+mkdir build  
+cd build  
+cmake ..  
+cmake --build .  
 
-Executable will be in /client/bin
+Executable will be in /client/bin  
 
 ## Notes
 - Uses C++17 for std::filesystem
